@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Financial Advisor Chatbot</title>
+    <style>
+        /* Basic styling for the chat interface */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+        }
+        #chat-container {
+            width: 600px;
+            margin: 50px auto;
+        }
+        #chatbox {
+            border: 1px solid #ccc;
+            background-color: #fff;
+            padding: 10px;
+            height: 400px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .message {
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+            max-width: 80%;
+            display: inline-block;
+            position: relative;
+        }
+        .user-message {
+            background-color: #d1e7dd;
+            align-self: flex-end;
+            text-align: right;
+            margin-left: auto;
+        }
+        .bot-message {
+            background-color: #f8d7da;
+            align-self: flex-start;
+            text-align: left;
+            margin-right: auto;
+        }
+        #input-container {
+            display: flex;
+            margin-top: 10px;
+        }
+        #user-input {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+        }
+        #send-button, #reset-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-left: 5px;
+        }
+        #buttons-container {
+            margin-top: 10px;
+            text-align: right;
+        }
+        #feedback-container {
+            margin-top: 5px;
+        }
+        #feedback-container button {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <h1>Financial Advisor Chatbot</h1>
+        <!-- Chatbox to display messages -->
+        <div id="chatbox"></div>
+        <!-- Input container for user messages -->
+        <div id="input-container">
+            <input type="text" id="user-input" placeholder="Type your message here..." autofocus />
+            <button id="send-button">Send</button>
+        </div>
+        <!-- Buttons container for additional actions -->
+        <div id="buttons-container">
+            <button id="reset-button">Reset Context</button>
+        </div>
+    </div>
+
+    <script>
+        // Get references to HTML elements
+        const sendButton = document.getElementById('send-button');
+        const resetButton = document.getElementById('reset-button');
+        const userInput = document.getElementById('user-input');
+        const chatbox = document.getElementById('chatbox');
+
+        // Event listeners for user interactions
+        sendButton.addEventListener('click', sendMessage);
+        resetButton.addEventListener('click', resetContext);
+        userInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Function to append messages to the chatbox
+        function appendMessage(text, sender) {
+            const message = document.createElement('div');
+            message.classList.add('message');
+            if (sender === 'user') {
+                message.classList.add('user-message');
+                message.innerHTML = `<strong>You:</strong> ${text}`;
+            } else {
+                message.classList.add('bot-message');
+                message.innerHTML = `<strong>Bot:</strong> ${text}`;
+
+                // Add feedback buttons for bot messages
+                const feedbackContainer = document.createElement('div');
+                feedbackContainer.id = 'feedback-container';
+                feedbackContainer.innerHTML = `
+                    <button onclick="sendFeedback('positive')">👍</button>
+                    <button onclick="sendFeedback('negative')">👎</button>
+                `;
+                message.appendChild(feedbackContainer);
+            }
+            chatbox.appendChild(message);
+            chatbox.scrollTop = chatbox.scrollHeight;  // Scroll to the bottom
+        }
+
+        // Function to send a message to the server
+        function sendMessage() {
+            const message = userInput.value.trim();
+            if (message === '') return;
+
+            // Display user's message
+            appendMessage(message, 'user');
+
+            // Clear the input field
+            userInput.value = '';
+            userInput.focus();
+
+            // Send the message to the server using fetch
+            fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: 'message=' + encodeURIComponent(message),
+                credentials: 'same-origin' // Include session cookies
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Display the bot's response
+                appendMessage(data.response, 'bot');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                appendMessage('Sorry, there was an error processing your request.', 'bot');
+            });
+        }
+
+        // Function to reset the conversation context
+        function resetContext() {
+            // Send a request to reset the context
+            fetch('/reset_context', {
+                method: 'POST',
+                credentials: 'same-origin' // Include session cookies
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Clear the chatbox and notify the user
+                chatbox.innerHTML = '';
+                appendMessage('Context has been reset.', 'bot');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                appendMessage('Sorry, there was an error resetting the context.', 'bot');
+            });
+        }
+
+        // Function to send user feedback
+        function sendFeedback(rating) {
+            fetch('/feedback', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({'rating': rating}),
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Feedback received:', data);
+            })
+            .catch(error => {
+                console.error('Error sending feedback:', error);
+            });
+        }
+    </script>
+</body>
+</html>
